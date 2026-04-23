@@ -24,15 +24,18 @@ type Stats = {
   emailsSent: number;
 };
 
+type SourceCount = { source: string; count: number };
+
 async function fetchOverview(): Promise<{
   stats: Stats;
   recentCompanies: Company[];
+  sourceCounts: SourceCount[];
   error: string | null;
 }> {
   try {
     const supabase = createServerClient();
 
-    const [companies, contacts, signals, emailsSent, recent] =
+    const [companies, contacts, signals, emailsSent, recent, sources] =
       await Promise.all([
         supabase.from("companies").select("*", { count: "exact", head: true }),
         supabase.from("contacts").select("*", { count: "exact", head: true }),
@@ -46,7 +49,14 @@ async function fetchOverview(): Promise<{
           .select("*")
           .order("discovered_at", { ascending: false })
           .limit(20),
+        supabase.from("companies").select("source"),
       ]);
+
+    const sourceCounts = new Map<string, number>();
+    for (const row of sources.data ?? []) {
+      const key = row.source ?? "unknown";
+      sourceCounts.set(key, (sourceCounts.get(key) ?? 0) + 1);
+    }
 
     return {
       stats: {
@@ -56,19 +66,23 @@ async function fetchOverview(): Promise<{
         emailsSent: emailsSent.count ?? 0,
       },
       recentCompanies: (recent.data ?? []) as Company[],
+      sourceCounts: Array.from(sourceCounts.entries())
+        .map(([source, count]) => ({ source, count }))
+        .sort((a, b) => b.count - a.count),
       error: null,
     };
   } catch (err) {
     return {
       stats: { companies: 0, contacts: 0, signals: 0, emailsSent: 0 },
       recentCompanies: [],
+      sourceCounts: [],
       error: err instanceof Error ? err.message : "Unknown error",
     };
   }
 }
 
 export default async function OverviewPage() {
-  const { stats, recentCompanies, error } = await fetchOverview();
+  const { stats, recentCompanies, sourceCounts, error } = await fetchOverview();
 
   const cards = [
     { label: "Companies", value: stats.companies },
@@ -113,53 +127,78 @@ export default async function OverviewPage() {
         ))}
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Recently discovered companies</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {recentCompanies.length === 0 ? (
-            <div className="py-10 text-center text-sm text-muted-foreground">
-              No companies yet. Scrapers come online in Phase 2.
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Domain</TableHead>
-                  <TableHead>City</TableHead>
-                  <TableHead>Source</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Discovered</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {recentCompanies.map((c) => (
-                  <TableRow key={c.id}>
-                    <TableCell className="font-medium">{c.name}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {c.domain ?? "—"}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {c.city ?? "—"}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {c.source}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {c.enrichment_status}
-                    </TableCell>
-                    <TableCell className="text-right text-muted-foreground">
-                      {new Date(c.discovered_at).toLocaleDateString()}
-                    </TableCell>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Recently discovered companies</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {recentCompanies.length === 0 ? (
+              <div className="py-10 text-center text-sm text-muted-foreground">
+                No companies yet. Run{" "}
+                <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
+                  npx tsx scripts/crawl-uk-recruitment.ts
+                </code>
+                .
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Domain</TableHead>
+                    <TableHead>City</TableHead>
+                    <TableHead className="text-right">Discovered</TableHead>
                   </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {recentCompanies.map((c) => (
+                    <TableRow key={c.id}>
+                      <TableCell className="font-medium">{c.name}</TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {c.domain ?? "—"}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {c.city ?? "—"}
+                      </TableCell>
+                      <TableCell className="text-right text-muted-foreground">
+                        {new Date(c.discovered_at).toLocaleDateString()}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Companies by source</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {sourceCounts.length === 0 ? (
+              <div className="py-10 text-center text-sm text-muted-foreground">
+                No data yet.
+              </div>
+            ) : (
+              <ul className="space-y-2 text-sm">
+                {sourceCounts.map((s) => (
+                  <li
+                    key={s.source}
+                    className="flex items-center justify-between"
+                  >
+                    <span className="text-muted-foreground">{s.source}</span>
+                    <span className="font-semibold tabular-nums">
+                      {s.count}
+                    </span>
+                  </li>
                 ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
