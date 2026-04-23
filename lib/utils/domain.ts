@@ -63,3 +63,28 @@ export function isJobBoardDomain(domain: string | null | undefined): boolean {
   if (!domain) return false;
   return JOB_BOARDS.has(domain);
 }
+
+// Public-sector / government domains aren't agencies we can sell to.
+// Matches ".gov.uk" and any subdomain of it.
+export function isGovUkDomain(domain: string | null | undefined): boolean {
+  if (!domain) return false;
+  return domain === "gov.uk" || domain.endsWith(".gov.uk");
+}
+
+export type JunkReason =
+  | "no_domain"
+  | "social_url"
+  | "job_board"
+  | "gov_uk";
+
+// Single entry point for the Phase 2.5 filter pass + any future writer that
+// wants the same screening. Order of checks matches reporting priority.
+export function classifyJunkDomain(
+  domain: string | null | undefined,
+): JunkReason | null {
+  if (!domain) return "no_domain";
+  if (isSocialDomain(domain)) return "social_url";
+  if (isJobBoardDomain(domain)) return "job_board";
+  if (isGovUkDomain(domain)) return "gov_uk";
+  return null;
+}

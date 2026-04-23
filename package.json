@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "crawl:uk": "tsx scripts/crawl-uk-recruitment.ts"
+    "crawl:uk": "tsx scripts/crawl-uk-recruitment.ts",
+    "audit:phase-2": "tsx scripts/audit-phase-2.ts",
+    "filter:apply": "tsx scripts/apply-filter-pass.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",

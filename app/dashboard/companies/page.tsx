@@ -25,6 +25,7 @@ const ENRICHMENT_STATUSES: EnrichmentStatus[] = [
   "enriching",
   "enriched",
   "failed",
+  "skipped",
 ];
 
 type SearchParams = {
@@ -156,6 +157,12 @@ export default async function CompaniesPage({
             {total.toLocaleString()} total · page {page} of {totalPages}
           </p>
         </div>
+        <Link
+          href="/dashboard/companies/audit"
+          className="flex h-9 items-center rounded-md border px-4 text-sm"
+        >
+          Audit
+        </Link>
       </div>
 
       {error ? (

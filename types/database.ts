@@ -1,7 +1,12 @@
 // Hand-rolled row types for the Phase 1 schema. Replace with
 // `supabase gen types typescript --linked` output once we're connected.
 
-export type EnrichmentStatus = "pending" | "enriching" | "enriched" | "failed";
+export type EnrichmentStatus =
+  | "pending"
+  | "enriching"
+  | "enriched"
+  | "failed"
+  | "skipped";
 
 export type SignalType =
   | "job_post"
