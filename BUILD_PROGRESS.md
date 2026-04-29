@@ -66,13 +66,20 @@ descriptions must be specific, services must be real.
 ---
 
 ## Phase 4 — Signals Scraper
-- [ ] `lib/scrapers/signals/blog-scraper.ts`
-- [ ] `lib/scrapers/signals/careers-scraper.ts`
-- [ ] `lib/scrapers/signals/news-scraper.ts` (Google News RSS, 1/3s)
-- [ ] `lib/enrichment/signals-finder.ts`
-- [ ] Migration 0003: `companies.last_signals_scan_at`
-- [ ] `scripts/scan-signals.ts`
-- [ ] "Signals" tab on company detail
+- [x] `lib/scrapers/_browser.ts` — shared headless Chromium pool
+- [x] `lib/scrapers/signals/blog-scraper.ts` — finds /blog · /news · /insights · /resources, extracts up to 5 posts via anchor + nearest-heading heuristics
+- [x] `lib/scrapers/signals/careers-scraper.ts` — same-origin /careers + ATS hosts (Workable, Greenhouse, Lever, Bullhorn, Workday); role-keyword filter
+- [x] `lib/scrapers/signals/news-scraper.ts` — Google News RSS, plain-fetch + tiny inline RSS parser (no third-party dep)
+- [x] `lib/enrichment/signals-finder.ts` — orchestrator: blog + careers in parallel, news serialised; persists via upsert with `onConflict: 'company_id,type,url'`
+- [x] Migration 0003: `companies.last_signals_scan_at` + partial unique index `idx_signals_dedupe(company_id, type, url) where url is not null`
+- [x] `scripts/scan-signals.ts` — `--limit`, `--concurrency` (default 3), `--rescan`; global news throttle (1/3s)
+- [x] Signals tab already on `/dashboard/companies/[id]` — populates automatically once rows exist
+
+Run locally:
+```
+npm run scan:signals -- --limit 20      # smoke test
+npm run scan:signals                    # full enriched batch
+```
 
 Quality gate: ≥ 60% of enriched companies have ≥ 3 signals; signals are real.
 

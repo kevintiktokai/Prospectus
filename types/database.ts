@@ -61,6 +61,7 @@ export type Company = {
   score: number | null;
   discovered_at: string;
   last_enriched_at: string | null;
+  last_signals_scan_at: string | null;
   enrichment_status: EnrichmentStatus;
   enrichment_error: string | null;
   created_at: string;
@@ -148,11 +149,10 @@ export type Database = {
     Tables: {
       companies: {
         Row: Company;
-        Insert: Omit<
-          Company,
-          "id" | "discovered_at" | "created_at" | "updated_at"
-        > &
-          Partial<Pick<Company, "id" | "discovered_at">>;
+        // SQL NOT NULLs are `name` and `source`; everything else has a
+        // DB default or is nullable.
+        Insert: Pick<Company, "name" | "source"> &
+          Partial<Omit<Company, "name" | "source">>;
         Update: Partial<Company>;
         Relationships: [];
       };
@@ -175,8 +175,9 @@ export type Database = {
       };
       signals: {
         Row: Signal;
-        Insert: Omit<Signal, "id" | "detected_at" | "created_at"> &
-          Partial<Pick<Signal, "id" | "detected_at">>;
+        // SQL NOT NULLs are `company_id` and `type`.
+        Insert: Pick<Signal, "company_id" | "type"> &
+          Partial<Omit<Signal, "company_id" | "type">>;
         Update: Partial<Signal>;
         Relationships: [
           {

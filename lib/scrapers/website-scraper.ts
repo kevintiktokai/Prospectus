@@ -7,9 +7,14 @@
 //   const result = await scrapeWebsite("https://example.com");
 //   if (result.ok) { ... result.data.homepage.title ... }
 
-import { chromium, type Browser, type Page } from "playwright";
+import type { BrowserContext, Page } from "playwright";
+import {
+  closeBrowser as closeSharedBrowser,
+  newContext,
+  SCRAPER_TIMEOUT_MS,
+} from "@/lib/scrapers/_browser";
 
-const PAGE_TIMEOUT_MS = 15_000;
+const PAGE_TIMEOUT_MS = SCRAPER_TIMEOUT_MS;
 const BODY_CHAR_LIMIT = 5_000;
 
 // Routes we consider for the "deeper context" pages. Order matters — first
@@ -58,22 +63,8 @@ export type ScrapeResult =
       message: string;
     };
 
-let browserSingleton: Browser | null = null;
-
-async function getBrowser(): Promise<Browser> {
-  if (browserSingleton && browserSingleton.isConnected()) return browserSingleton;
-  browserSingleton = await chromium.launch({
-    headless: true,
-    args: ["--disable-dev-shm-usage", "--no-sandbox"],
-  });
-  return browserSingleton;
-}
-
 export async function closeBrowser(): Promise<void> {
-  if (browserSingleton) {
-    await browserSingleton.close().catch(() => {});
-    browserSingleton = null;
-  }
+  await closeSharedBrowser();
 }
 
 function clean(text: string | null | undefined): string {
@@ -197,9 +188,9 @@ export async function scrapeWebsite(websiteUrl: string): Promise<ScrapeResult> {
     return { ok: false, error: "navigation_failed", message: "no url" };
   }
 
-  let browser: Browser;
+  let context: BrowserContext;
   try {
-    browser = await getBrowser();
+    context = await newContext();
   } catch (err) {
     return {
       ok: false,
@@ -208,15 +199,7 @@ export async function scrapeWebsite(websiteUrl: string): Promise<ScrapeResult> {
     };
   }
 
-  const context = await browser.newContext({
-    userAgent:
-      "Mozilla/5.0 (compatible; LayerSyncBot/1.0; +https://layersync.ai/bot)",
-    viewport: { width: 1280, height: 720 },
-    ignoreHTTPSErrors: true,
-  });
   const page = await context.newPage();
-  page.setDefaultTimeout(PAGE_TIMEOUT_MS);
-  page.setDefaultNavigationTimeout(PAGE_TIMEOUT_MS);
 
   try {
     await navigate(page, websiteUrl);
@@ -261,7 +244,7 @@ export async function scrapeWebsite(websiteUrl: string): Promise<ScrapeResult> {
 }
 
 async function fetchSubPage(
-  context: Awaited<ReturnType<Browser["newContext"]>>,
+  context: BrowserContext,
   url: string | undefined,
 ): Promise<PageContent | null> {
   if (!url) return null;
