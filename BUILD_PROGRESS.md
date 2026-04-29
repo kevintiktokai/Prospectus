@@ -46,11 +46,19 @@ before Phase 3.
 ---
 
 ## Phase 3 — Website Scraper & Enrichment
-- [ ] Playwright installed + Chromium fetched
-- [ ] `lib/scrapers/website-scraper.ts`
-- [ ] `lib/enrichment/company-enricher.ts` (Claude Haiku extraction)
-- [ ] `scripts/enrich-companies.ts` (batch, p-limit concurrency 5)
-- [ ] `/dashboard/companies/[id]` detail page
+- [x] Playwright installed (Chromium download deferred — run `npx playwright install chromium` on local machine; the build sandbox blocks the download)
+- [x] `lib/scrapers/website-scraper.ts` — Playwright, 15s timeout, sub-page discovery for /about · /team · /services · /what-we-do · /sectors, typed error result (timeout / navigation_failed / blocked / no_content / browser_failed)
+- [x] `lib/enrichment/company-enricher.ts` — Claude Haiku 4.5 (`claude-haiku-4-5`) via `messages.parse` with a Zod schema; system prompt cached (`cache_control: ephemeral`); atomic claim transition (pending → enriching) so concurrent runners can't double-process
+- [x] `scripts/enrich-companies.ts` — p-limit, configurable concurrency (default 5), `--limit N`, resumable
+- [x] `/dashboard/companies/[id]` — overview, services, tech-stack signals, signals tab placeholder, error display
+- [x] npm script: `enrich:companies`
+
+To run locally:
+```
+npx playwright install chromium       # one-time, ~170MB
+npm run enrich:companies -- --limit 20  # smoke test on 20 rows first
+npm run enrich:companies                # full pending batch
+```
 
 Quality gate: ≥ 70% of the pending batch reaches `enriched`. Spot-check 10 —
 descriptions must be specific, services must be real.
