@@ -86,15 +86,24 @@ Quality gate: ≥ 60% of enriched companies have ≥ 3 signals; signals are real
 ---
 
 ## Phase 5 — Contact Discovery & Verification
-- [ ] `lib/scrapers/team-page-scraper.ts` (Haiku extraction)
-- [ ] `lib/enrichment/hunter-finder.ts`
-- [ ] Decision-maker ranking + `is_primary_contact` selection
-- [ ] Dedup across team_page + hunter sources
-- [ ] `lib/enrichment/email-verifier.ts` (NeverBounce batch)
-- [ ] `scripts/find-contacts.ts`
-- [ ] `/dashboard/contacts` with filters
+- [x] `lib/scrapers/team-page-scraper.ts` — Playwright fetches /team · /people · /leadership · /about; Haiku extracts `[{first_name, last_name, title, email?}]`; mailto: anchors captured separately for name-based association
+- [x] `lib/enrichment/hunter-finder.ts` — `/v2/domain-search` with `seniority=executive,senior` filter; reads `x-credits-remaining` header
+- [x] `lib/enrichment/contact-writer.ts` — title-keyword seniority ranking (Founder > MD/CEO > C-suite > Director/Partner > Head of > Senior Mgr > Manager > Lead > Senior > IC); two-pass dedupe (email then lower-cased name); team_page wins on name/title, Hunter wins on email; sets `is_primary_contact` to highest-ranked row that has an email
+- [x] `lib/enrichment/email-verifier.ts` — NeverBounce single-check; only `result === "valid"` sets `email_verified = true` (catch-alls + unknown stay unverified)
+- [x] `lib/enrichment/contact-finder.ts` — orchestrator
+- [x] Migration 0004: `companies.last_contacts_scan_at` + partial unique index `idx_contacts_name_dedupe(company_id, lower(first_name), lower(last_name))`
+- [x] `scripts/find-contacts.ts` — `--limit`, `--concurrency` (default 2), `--rescan`, `--skip-verify`
+- [x] `/dashboard/contacts` — filter by verified/primary, search across name/email/title, paginated 50/page
 
-Quality gate: ≥ 40% of enriched companies have ≥ 1 primary contact with verified email.
+Run locally:
+```
+npm run find:contacts -- --limit 5 --skip-verify   # smallest smoke (1 Hunter call/co)
+npm run find:contacts                              # full enriched batch
+```
+
+Quality gate: ≥ 40% of enriched companies have ≥ 1 primary contact with
+verified email. Hunter credits remaining are reported in BUILD_PROGRESS
+after each run if low.
 
 ---
 

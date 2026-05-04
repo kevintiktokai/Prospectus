@@ -62,6 +62,7 @@ export type Company = {
   discovered_at: string;
   last_enriched_at: string | null;
   last_signals_scan_at: string | null;
+  last_contacts_scan_at: string | null;
   enrichment_status: EnrichmentStatus;
   enrichment_error: string | null;
   created_at: string;
@@ -158,11 +159,9 @@ export type Database = {
       };
       contacts: {
         Row: Contact;
-        Insert: Omit<
-          Contact,
-          "id" | "full_name" | "created_at" | "updated_at"
-        > &
-          Partial<Pick<Contact, "id">>;
+        // SQL NOT NULLs are `company_id` and `source`; full_name is generated.
+        Insert: Pick<Contact, "company_id" | "source"> &
+          Partial<Omit<Contact, "company_id" | "source" | "full_name">>;
         Update: Partial<Omit<Contact, "full_name">>;
         Relationships: [
           {

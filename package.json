@@ -12,7 +12,8 @@
     "audit:phase-2": "tsx scripts/audit-phase-2.ts",
     "filter:apply": "tsx scripts/apply-filter-pass.ts",
     "enrich:companies": "tsx scripts/enrich-companies.ts",
-    "scan:signals": "tsx scripts/scan-signals.ts"
+    "scan:signals": "tsx scripts/scan-signals.ts",
+    "find:contacts": "tsx scripts/find-contacts.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.1",
