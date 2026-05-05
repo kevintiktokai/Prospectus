@@ -14,7 +14,8 @@
     "enrich:companies": "tsx scripts/enrich-companies.ts",
     "scan:signals": "tsx scripts/scan-signals.ts",
     "find:contacts": "tsx scripts/find-contacts.ts",
-    "score:companies": "tsx scripts/score-companies.ts"
+    "score:companies": "tsx scripts/score-companies.ts",
+    "draft:emails": "tsx scripts/draft-emails.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.1",

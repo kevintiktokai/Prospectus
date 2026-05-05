@@ -196,8 +196,10 @@ export type Database = {
       };
       email_sequences: {
         Row: EmailSequence;
-        Insert: Omit<EmailSequence, "id" | "created_at" | "updated_at"> &
-          Partial<Pick<EmailSequence, "id">>;
+        // SQL NOT NULLs are `contact_id` and `campaign_id`; sequence_step
+        // has a default of 1; everything else is nullable or defaulted.
+        Insert: Pick<EmailSequence, "contact_id" | "campaign_id"> &
+          Partial<Omit<EmailSequence, "contact_id" | "campaign_id">>;
         Update: Partial<EmailSequence>;
         Relationships: [
           {

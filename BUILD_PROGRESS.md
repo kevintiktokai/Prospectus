@@ -125,12 +125,23 @@ Quality gate: Sensible distribution, ≥ 50 score 70+, top 10 pass manual review
 ---
 
 ## Phase 7 — Email Drafting
-- [ ] `lib/drafting/voice-samples.ts` (3 placeholder samples — replace with Kev's)
-- [ ] `lib/drafting/email-drafter.ts` (Claude Sonnet, strict JSON, validators)
-- [ ] `scripts/draft-emails.ts`
-- [ ] `/dashboard/drafts` approval queue (Approve / Reject / Edit)
+- [x] `lib/drafting/voice-samples.ts` — 3 PLACEHOLDER samples (resourcer roles, reporting ops, Bullhorn export problem). **Replace with your real cold emails before the gate review** — bad samples in = robotic output.
+- [x] `lib/drafting/email-drafter.ts` — Claude Sonnet 4.6 via `messages.parse` + Zod. System prompt encodes cold-email principles + voice samples + anti-patterns (forbidden phrase regex list); cached.
+- [x] Validation: subject ≤ 6 words, lowercase, no `?` / `!`; body ≤ 90 words, contains `Hi {firstName},` and `Kev` sign-off; no forbidden phrases. On fail, retry once with the validation errors fed back to the model. Hard fail on second attempt → row marked `failed`, activity logged.
+- [x] `scripts/draft-emails.ts` — `--limit`, `--min-score` (default 70), `--concurrency` (default 3), `--campaign <id>`. Idempotent via `alreadyHasDraft` guard.
+- [x] `/dashboard/drafts` — tab nav (draft / approved / failed) with counts. Per-card: company + contact + signal hook + subject + body. Three actions wired to server actions: **Approve** (sets `status='approved'`), **Edit** (inline subject + textarea form), **Reject** (with optional reason → `failed` + activity log).
+- [x] `email_sequences.Insert` tightened to `Pick<contact_id|campaign_id> & Partial<rest>`.
 
-Quality gate: Taste-test 30 drafts. No more than 3 robotic. Kev must sign off.
+Run locally:
+```
+npm run draft:emails -- --limit 10   # smoke first
+npm run draft:emails                 # full eligible batch
+```
+
+Quality gate: Generate 30 drafts. Read all of them at `/dashboard/drafts`.
+Ask: would Kev send this exact email? **No more than 3 robotic.** If more,
+iterate on `lib/drafting/voice-samples.ts` (or the SYSTEM_PROMPT) before
+moving on. Note any prompt iterations under **Blockers** below.
 
 ---
 
