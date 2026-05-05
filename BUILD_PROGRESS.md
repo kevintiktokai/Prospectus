@@ -108,9 +108,17 @@ after each run if low.
 ---
 
 ## Phase 6 — Fit Scoring & Primary Signal
-- [ ] `lib/scoring/company-scorer.ts`
-- [ ] `scripts/score-companies.ts`
-- [ ] Score column + filter on `/dashboard/companies`
+- [x] `lib/scoring/company-scorer.ts` — Claude Haiku 4.5 (`messages.parse` + Zod). System prompt encodes the LayerSync ICP (10–30 staff, owner-operated, no AI-recruitment competitors), hard penalties for competitor self-positioning, and rubric for the 0–100 score. System prompt cached.
+- [x] Defensive validation: hallucinated `primary_signal_id` UUIDs are silently dropped (allowed-set check against the actual signals sent).
+- [x] Persists `companies.score` and flips `signals.is_primary` on the chosen signal (resetting any previous primary first).
+- [x] `scripts/score-companies.ts` — `--limit`, `--concurrency` (default 5), `--rescore`, `--campaign <id>`. Prints score distribution buckets so you see whether it's a sensible bell curve.
+- [x] `/dashboard/companies` — default sort is now `score desc · discovered_at desc`; `?sort=recent` flips to discovered-only. Min-score numeric input + one-click "Score ≥ 70" pill.
+
+Run locally:
+```
+npm run score:companies -- --limit 30   # smoke test the rubric on 30 first
+npm run score:companies                 # full enriched batch
+```
 
 Quality gate: Sensible distribution, ≥ 50 score 70+, top 10 pass manual review.
 

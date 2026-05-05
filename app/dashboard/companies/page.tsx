@@ -34,6 +34,8 @@ type SearchParams = {
   city?: string;
   status?: string;
   q?: string;
+  min_score?: string;
+  sort?: string;
 };
 
 function parsePage(raw: string | undefined): number {
@@ -75,14 +77,27 @@ async function fetchPage(params: SearchParams): Promise<{
 
     let query = supabase
       .from("companies")
-      .select("*", { count: "exact" })
-      .order("discovered_at", { ascending: false })
-      .range(from, to);
+      .select("*", { count: "exact" });
+
+    // Sort: default is "score desc, discovered_at desc"; ?sort=recent
+    // flips to discovered_at desc only.
+    if (params.sort === "recent") {
+      query = query.order("discovered_at", { ascending: false });
+    } else {
+      query = query
+        .order("score", { ascending: false, nullsFirst: false })
+        .order("discovered_at", { ascending: false });
+    }
+    query = query.range(from, to);
 
     if (params.source) query = query.eq("source", params.source);
     if (params.city) query = query.eq("city", params.city);
     if (params.status)
       query = query.eq("enrichment_status", params.status as EnrichmentStatus);
+    const minScore = Number(params.min_score);
+    if (Number.isFinite(minScore) && minScore > 0) {
+      query = query.gte("score", minScore);
+    }
     if (params.q && params.q.trim()) {
       const q = params.q.trim().replace(/[,()]/g, " ");
       query = query.or(`name.ilike.%${q}%,domain.ilike.%${q}%`);
@@ -135,6 +150,8 @@ function buildPageHref(base: SearchParams, page: number): string {
   if (base.source) sp.set("source", base.source);
   if (base.city) sp.set("city", base.city);
   if (base.status) sp.set("status", base.status);
+  if (base.min_score) sp.set("min_score", base.min_score);
+  if (base.sort) sp.set("sort", base.sort);
   if (page > 1) sp.set("page", String(page));
   const qs = sp.toString();
   return qs ? `/dashboard/companies?${qs}` : "/dashboard/companies";
@@ -157,12 +174,20 @@ export default async function CompaniesPage({
             {total.toLocaleString()} total · page {page} of {totalPages}
           </p>
         </div>
-        <Link
-          href="/dashboard/companies/audit"
-          className="flex h-9 items-center rounded-md border px-4 text-sm"
-        >
-          Audit
-        </Link>
+        <div className="flex gap-2">
+          <Link
+            href="/dashboard/companies?min_score=70"
+            className="flex h-9 items-center rounded-md border px-3 text-sm hover:bg-accent"
+          >
+            Score ≥ 70
+          </Link>
+          <Link
+            href="/dashboard/companies/audit"
+            className="flex h-9 items-center rounded-md border px-4 text-sm"
+          >
+            Audit
+          </Link>
+        </div>
       </div>
 
       {error ? (
@@ -181,7 +206,7 @@ export default async function CompaniesPage({
           <form
             method="get"
             action="/dashboard/companies"
-            className="grid grid-cols-1 gap-3 md:grid-cols-5"
+            className="grid grid-cols-1 gap-3 md:grid-cols-6"
           >
             <input
               type="text"
@@ -189,6 +214,15 @@ export default async function CompaniesPage({
               defaultValue={searchParams.q ?? ""}
               placeholder="Search name or domain"
               className="col-span-2 h-9 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+            />
+            <input
+              type="number"
+              name="min_score"
+              min="0"
+              max="100"
+              defaultValue={searchParams.min_score ?? ""}
+              placeholder="Min score"
+              className="h-9 rounded-md border bg-background px-2 text-sm"
             />
             <select
               name="source"
@@ -226,7 +260,7 @@ export default async function CompaniesPage({
                 </option>
               ))}
             </select>
-            <div className="md:col-span-5 flex gap-2">
+            <div className="md:col-span-6 flex gap-2">
               <button
                 type="submit"
                 className="h-9 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground"

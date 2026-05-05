@@ -13,7 +13,8 @@
     "filter:apply": "tsx scripts/apply-filter-pass.ts",
     "enrich:companies": "tsx scripts/enrich-companies.ts",
     "scan:signals": "tsx scripts/scan-signals.ts",
-    "find:contacts": "tsx scripts/find-contacts.ts"
+    "find:contacts": "tsx scripts/find-contacts.ts",
+    "score:companies": "tsx scripts/score-companies.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.1",
