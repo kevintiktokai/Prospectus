@@ -1,0 +1,53 @@
+name: phase-5 · find contacts
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "Max companies to process (blank = all unscanned). Hunter credits cost ~1/co — keep tight."
+        required: false
+        default: "25"
+      concurrency:
+        description: "Parallel processing (1–3)"
+        required: false
+        default: "2"
+      skip_verify:
+        description: "Skip NeverBounce verification (fastest, cheapest)"
+        type: boolean
+        required: false
+        default: false
+      rescan:
+        description: "Re-scan companies that have already been processed"
+        type: boolean
+        required: false
+        default: false
+
+concurrency:
+  group: pipeline-mutating
+  cancel-in-progress: false
+
+jobs:
+  contacts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      HUNTER_API_KEY: ${{ secrets.HUNTER_API_KEY }}
+      NEVERBOUNCE_API_KEY: ${{ secrets.NEVERBOUNCE_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Find contacts
+        run: |
+          ARGS=()
+          if [ -n "${{ inputs.limit }}" ]; then ARGS+=( --limit "${{ inputs.limit }}" ); fi
+          ARGS+=( --concurrency "${{ inputs.concurrency }}" )
+          if [ "${{ inputs.skip_verify }}" = "true" ]; then ARGS+=( --skip-verify ); fi
+          if [ "${{ inputs.rescan }}" = "true" ]; then ARGS+=( --rescan ); fi
+          npm run find:contacts -- "${ARGS[@]}"

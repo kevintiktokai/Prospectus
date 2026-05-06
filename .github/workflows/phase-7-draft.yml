@@ -1,0 +1,42 @@
+name: phase-7 · draft emails
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "Max drafts to generate (blank = all eligible)"
+        required: false
+        default: "30"
+      min_score:
+        description: "Minimum score to draft for"
+        required: false
+        default: "70"
+      concurrency:
+        description: "Parallel drafts (1–5)"
+        required: false
+        default: "3"
+
+concurrency:
+  group: pipeline-mutating
+  cancel-in-progress: false
+
+jobs:
+  draft:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - name: Draft
+        run: |
+          ARGS=()
+          if [ -n "${{ inputs.limit }}" ]; then ARGS+=( --limit "${{ inputs.limit }}" ); fi
+          ARGS+=( --min-score "${{ inputs.min_score }}" --concurrency "${{ inputs.concurrency }}" )
+          npm run draft:emails -- "${ARGS[@]}"

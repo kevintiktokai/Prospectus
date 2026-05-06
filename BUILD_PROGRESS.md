@@ -190,3 +190,69 @@ Quality gate: Kev answers any common question in < 60s of nav. No SQL needed.
 ## Blockers
 <!-- When stuck, log here with: what was tried, what's blocking, what's needed to unblock. -->
 _None._
+
+---
+
+## Running the pipeline without a laptop (GitHub Actions)
+
+Manual-only triggers — no schedules. Click **Run workflow** in the GH UI when
+you want to fire one. Each stage is idempotent so re-running picks up where it
+left off.
+
+### One-time setup: paste secrets
+
+Go to `https://github.com/kevintiktokai/Prospectus/settings/secrets/actions`
+and add:
+
+| Secret | Used by |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | every workflow |
+| `SUPABASE_SERVICE_ROLE_KEY` | every workflow |
+| `ANTHROPIC_API_KEY` | enrich, contacts, score, draft, pipeline |
+| `GOOGLE_PLACES_API_KEY` | crawl |
+| `HUNTER_API_KEY` | contacts, pipeline |
+| `NEVERBOUNCE_API_KEY` | contacts, pipeline |
+
+`NEXT_PUBLIC_SUPABASE_ANON_KEY` is not needed — the workflows use the service
+role key only.
+
+### The workflows
+
+Each lives at `.github/workflows/*.yml`. Trigger from the **Actions** tab.
+
+| Workflow | What it does | Useful inputs |
+|---|---|---|
+| `phase-2 · crawl UK recruitment` | Google Places crawl. Run sparingly — re-running costs API calls but won't dupe rows (domain unique index). | `note` |
+| `phase-2.5 · audit + filter` | Read-only audit, dry-run filter, or apply filter | `mode` (audit / filter / filter-dry-run) |
+| `phase-3 · enrich companies` | Playwright + Haiku 4.5 enrichment | `limit`, `concurrency` |
+| `phase-4 · scan signals` | Blog + careers + Google News | `limit`, `concurrency`, `rescan` |
+| `phase-5 · find contacts` | Team-page + Hunter + NeverBounce. Default `limit=25` to bound Hunter spend. | `limit`, `concurrency`, `skip_verify`, `rescan` |
+| `phase-6 · score companies` | Haiku 4.5 fit scoring | `limit`, `concurrency`, `rescore` |
+| `phase-7 · draft emails` | Sonnet 4.6 drafts (read at `/dashboard/drafts`) | `limit`, `min_score`, `concurrency` |
+| `pipeline · enrich → … → draft` | Chained smoke run. Per-stage `\|\| true` so a single failure doesn't block downstream stages. | `limit`, `skip_contacts` |
+
+All workflows share `concurrency.group: pipeline-mutating` so two stages can't
+run at once and clash on the database.
+
+### Recommended first run
+
+Pick a small `limit` and watch the logs:
+1. `phase-2.5 · audit + filter` → mode: `audit` (sanity check)
+2. `phase-2.5 · audit + filter` → mode: `filter-dry-run` (see how many would flip)
+3. `phase-2.5 · audit + filter` → mode: `filter` (commit it)
+4. `phase-3 · enrich companies` → `limit: 10` (smoke)
+5. `phase-3 · enrich companies` → blank (full batch)
+6. ...and so on
+
+Or skip to `pipeline · enrich → … → draft` with `limit: 10` and `skip_contacts: true`
+to smoke the whole chain end-to-end without burning Hunter credits.
+
+### What still requires your intervention
+
+- **Approving drafts at `/dashboard/drafts`** — phase-7 stops at "draft" status.
+  Approve / Edit / Reject is a human action. (Phase 8 will push approved drafts
+  to Smartlead — that's also human-triggered.)
+- **Replacing the placeholder voice samples** in `lib/drafting/voice-samples.ts`
+  with your real cold emails before the gate review on phase-7.
+- **Supabase migrations** — paste each new `supabase/migrations/000N_*.sql`
+  file into the Supabase SQL editor when it lands.

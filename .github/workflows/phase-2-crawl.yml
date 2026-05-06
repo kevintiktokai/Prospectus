@@ -1,0 +1,31 @@
+name: phase-2 · crawl UK recruitment
+on:
+  workflow_dispatch:
+    inputs:
+      note:
+        description: "What you're testing (kept in run name for context)"
+        required: false
+        default: ""
+
+run-name: crawl${{ inputs.note && format(' — {0}', inputs.note) || '' }}
+
+concurrency:
+  group: pipeline-mutating
+  cancel-in-progress: false
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - run: npm run crawl:uk

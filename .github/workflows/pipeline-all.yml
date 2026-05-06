@@ -1,0 +1,51 @@
+name: pipeline · enrich → signals → contacts → score → draft
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "Per-stage row limit (kept low to bound cost on smoke runs)"
+        required: false
+        default: "20"
+      skip_contacts:
+        description: "Skip phase-5 (saves Hunter + NeverBounce credits)"
+        type: boolean
+        required: false
+        default: false
+
+concurrency:
+  group: pipeline-mutating
+  cancel-in-progress: false
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      HUNTER_API_KEY: ${{ secrets.HUNTER_API_KEY }}
+      NEVERBOUNCE_API_KEY: ${{ secrets.NEVERBOUNCE_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+
+      # Stages run with `|| true` so a single-stage failure doesn't block
+      # downstream resumable work — each script is idempotent and skips
+      # rows already in the next state.
+      - name: phase-3 · enrich
+        run: npm run enrich:companies -- --limit ${{ inputs.limit }} || true
+      - name: phase-4 · signals
+        run: npm run scan:signals -- --limit ${{ inputs.limit }} || true
+      - name: phase-5 · contacts
+        if: inputs.skip_contacts != true
+        run: npm run find:contacts -- --limit ${{ inputs.limit }} || true
+      - name: phase-6 · score
+        run: npm run score:companies -- --limit ${{ inputs.limit }} || true
+      - name: phase-7 · draft
+        run: npm run draft:emails -- --limit ${{ inputs.limit }} || true

@@ -1,0 +1,44 @@
+name: phase-6 · score companies
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "Max companies to score (blank = all unscored)"
+        required: false
+        default: ""
+      concurrency:
+        description: "Parallel scoring (1–10)"
+        required: false
+        default: "5"
+      rescore:
+        description: "Re-score companies that already have a score"
+        type: boolean
+        required: false
+        default: false
+
+concurrency:
+  group: pipeline-mutating
+  cancel-in-progress: false
+
+jobs:
+  score:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - name: Score
+        run: |
+          ARGS=()
+          if [ -n "${{ inputs.limit }}" ]; then ARGS+=( --limit "${{ inputs.limit }}" ); fi
+          ARGS+=( --concurrency "${{ inputs.concurrency }}" )
+          if [ "${{ inputs.rescore }}" = "true" ]; then ARGS+=( --rescore ); fi
+          npm run score:companies -- "${ARGS[@]}"

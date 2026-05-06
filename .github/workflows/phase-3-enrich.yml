@@ -1,0 +1,39 @@
+name: phase-3 · enrich companies
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "Max companies to enrich (blank = all pending)"
+        required: false
+        default: ""
+      concurrency:
+        description: "Parallel enrichments (1–10)"
+        required: false
+        default: "5"
+
+concurrency:
+  group: pipeline-mutating
+  cancel-in-progress: false
+
+jobs:
+  enrich:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Enrich
+        run: |
+          ARGS=()
+          if [ -n "${{ inputs.limit }}" ]; then ARGS+=( --limit "${{ inputs.limit }}" ); fi
+          ARGS+=( --concurrency "${{ inputs.concurrency }}" )
+          npm run enrich:companies -- "${ARGS[@]}"

@@ -1,0 +1,41 @@
+name: phase-2.5 · audit + filter
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "audit (read-only) or filter (writes 'skipped' to junk rows)"
+        type: choice
+        required: true
+        default: audit
+        options:
+          - audit
+          - filter
+          - filter-dry-run
+
+concurrency:
+  group: pipeline-mutating
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - name: Audit
+        if: inputs.mode == 'audit'
+        run: npm run audit:phase-2
+      - name: Filter (dry run)
+        if: inputs.mode == 'filter-dry-run'
+        run: npm run filter:apply -- --dry-run
+      - name: Filter (apply)
+        if: inputs.mode == 'filter'
+        run: npm run filter:apply

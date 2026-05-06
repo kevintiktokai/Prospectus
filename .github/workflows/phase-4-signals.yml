@@ -1,0 +1,44 @@
+name: phase-4 · scan signals
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "Max companies to scan (blank = all unscanned)"
+        required: false
+        default: ""
+      concurrency:
+        description: "Parallel scans (1–5)"
+        required: false
+        default: "3"
+      rescan:
+        description: "Re-scan companies that already have signals"
+        type: boolean
+        required: false
+        default: false
+
+concurrency:
+  group: pipeline-mutating
+  cancel-in-progress: false
+
+jobs:
+  signals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Scan signals
+        run: |
+          ARGS=()
+          if [ -n "${{ inputs.limit }}" ]; then ARGS+=( --limit "${{ inputs.limit }}" ); fi
+          ARGS+=( --concurrency "${{ inputs.concurrency }}" )
+          if [ "${{ inputs.rescan }}" = "true" ]; then ARGS+=( --rescan ); fi
+          npm run scan:signals -- "${ARGS[@]}"
